@@ -1,0 +1,170 @@
+function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes data) external payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function approve(address _approved, uint256 _tokenId) external payable;
+    function setApprovalForAll(address _operator, bool _approved) external;
+    function getApproved(uint256 _tokenId) external view returns (address);
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/utils/Context.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+
+contract MonkeyNFT is ERC721, ERC721Enumerable, Ownable {
+
+    using SafeMath for uint256;
+    uint public constant maxPurchase = 10;
+    uint256 public constant MAX_MONKEYS = 10000;
+
+    uint256 private _monkeyPrice = 80000000000000000; //0.08 ETH
+    string private baseURI;
+    bool public saleIsActive = true;
+
+    constructor() ERC721("The Monkey NFT", "MNK") {
+    }
+    
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+    
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+		function withdraw() public onlyOwner {
+			uint256 balance = address(this).balance;
+			payable(msg.sender).transfer(balance);
+		}    
+
+    function setPrice(uint256 _newPrice) public onlyOwner() {
+        _monkeyPrice = _newPrice;
+    }
+
+    function getPrice() public view returns (uint256){
+        return _monkeyPrice;
+    }
+
+    function mintMonkeys(uint numberOfTokens) public payable {
+        require(saleIsActive, "Sale must be active to mint Monkeys");
+        require(numberOfTokens <= maxPurchase, "Can only mint 10 tokens at a time");
+        require(totalSupply().add(numberOfTokens) <= MAX_MONKEYS, "Purchase would exceed max supply of Monkeys");
+        require(_monkeyPrice.mul(numberOfTokens) <= msg.value, "Ether value sent is not correct");
+        
+        for(uint i = 0; i < numberOfTokens; i++) {
+            uint mintIndex = totalSupply();
+            if (totalSupply() < MAX_MONKEYS) {
+                _safeMint(msg.sender, mintIndex);
+            }
+        }
+    }      
+
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI;
+    }
+    
+    function setBaseURI(string memory newBaseURI) public onlyOwner {
+        baseURI = newBaseURI;
+    }
+
+    function flipSaleState() public onlyOwner {
+        saleIsActive = !saleIsActive;
+    }  
+}
+
+
+const { expect } = require("chai");
+
+describe("Token contract", () => {
+
+  let contract;
+  let owner;
+  let addr1;
+  let addr2;
+  let addrs;
+  let baseURI;
+
+  beforeEach(async () => {
+    const Token = await ethers.getContractFactory("MonkeyNFT");
+    [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
+    contract = await Token.deploy();
+    baseURI = "https://hardhat.org/test/"
+    await contract.setBaseURI(baseURI)
+  });
+
+  it("Should initialize contract", async () => {
+    expect(await contract.MAX_MONKEYS()).to.equal(10000);
+  });
+  it("Should set the right owner", async () => {
+    expect(await contract.owner()).to.equal(await owner.address);
+  });
+  it("Should mint", async () => {
+    const price = await contract.getPrice();
+    const tokenId = await contract.totalSupply();
+    expect(
+      await contract.mintMonkeys(1, {
+        value: price,
+      })
+    ).to.emit(contract, "Transfer").withArgs(ethers.constants.AddressZero, owner.address, tokenId);  
+    expect(await contract.tokenURI(tokenId)).to.equal(baseURI+"0");
+  });
+});
+
+Compiling 1 file with 0.8.4
+Compilation finished successfully
+
+
+  Token contract
+    ✓ Should initialize contract
+    ✓ Should set the right owner
+    ✓ Should mint (41ms)
+
+
+  3 passing (1s)
+  
+  async function main() {
+    const [deployer] = await ethers.getSigners();
+  
+    console.log("Deploying contracts with the account:", deployer.address);
+  
+    console.log("Account balance:", (await deployer.getBalance()).toString());
+  
+    const Token = await ethers.getContractFactory("MonkeyNFT");
+
+    console.log("Deploying contract...");
+    const token = await Token.deploy();
+    await token.deployed();
+    console.log("Token address:", token.address);
+  }
+  
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+    require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-etherscan");
+
+module.exports = {
+  solidity: "0.8.4",
+  networks: {
+    rinkeby: {
+      url: `https://eth-rinkeby.alchemyapi.io/v2/${YOUR_API_KEY}`,
+    },
+  },
+};
